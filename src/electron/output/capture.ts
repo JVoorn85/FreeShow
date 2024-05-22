@@ -3,6 +3,7 @@ import electron from "electron"
 import { outputWindows } from "./output"
 import { NdiSender } from "../ndi/NdiSender"
 import { CaptureTransmitter } from "./CaptureTransmitter"
+import { GPU } from "gpu.js"
 
 export type CaptureOptions = {
     id: string
@@ -23,7 +24,7 @@ export const framerates: any = {
 }
 export let customFramerates: any = {}
 
-function getDefaultCapture(window: BrowserWindow, id:string): CaptureOptions {
+function getDefaultCapture(window: BrowserWindow, id: string): CaptureOptions {
     let screen: Display = getWindowScreen(window)
 
     const previewFramerate = Math.round(framerates.preview / Object.keys(captures).length)
@@ -40,7 +41,7 @@ function getDefaultCapture(window: BrowserWindow, id:string): CaptureOptions {
         displayFrequency: screen.displayFrequency || 60,
         options: { server: false, ndi: false },
         framerates: defaultFramerates,
-        id
+        id,
     }
 }
 
@@ -48,6 +49,15 @@ function getDefaultCapture(window: BrowserWindow, id:string): CaptureOptions {
 
 export let storedFrames: any = {}
 export function startCapture(id: string, toggle: any = {}, rate: any = {}) {
+    // test GPU.js
+    const gpu = new GPU()
+    const kernel = gpu
+        .createKernel(function () {
+            return this.thread.x
+        })
+        .setOutput([100])
+    console.log(kernel())
+
     let window = outputWindows[id]
     let windowIsRemoved = !window || window.isDestroyed()
     if (windowIsRemoved) {
@@ -64,7 +74,6 @@ export function startCapture(id: string, toggle: any = {}, rate: any = {}) {
     updateFramerate(id)
 
     if (captures[id].subscribed) return
-
 
     //captures[id].options.ndi = true
     CaptureTransmitter.startTransmitting(id)
@@ -105,7 +114,6 @@ export function startCapture(id: string, toggle: any = {}, rate: any = {}) {
     function processFrame(image: NativeImage) {
         storedFrames[id] = image
     }
-
 }
 
 export function updateFramerate(id: string) {
@@ -119,7 +127,6 @@ export function updateFramerate(id: string) {
             captures[id].framerates.ndi = parseInt(ndiFramerate)
             CaptureTransmitter.startChannel(id, "ndi")
         }
-        
     }
 }
 
@@ -140,7 +147,9 @@ export function resizeImage(image: NativeImage, initialSize: Size, newSize: Size
 }
 
 export let previewSize: Size = { width: 320, height: 180 }
-export function updatePreviewResolution(data: any) { previewSize = data.size }
+export function updatePreviewResolution(data: any) {
+    previewSize = data.size
+}
 
 // STOP
 
@@ -169,7 +178,7 @@ export function stopCapture(id: string) {
 
     function endSubscription() {
         if (!captures[id].subscribed) return
-        
+
         captures[id].window.webContents.endFrameSubscription()
         captures[id].subscribed = false
     }
